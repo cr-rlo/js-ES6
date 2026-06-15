@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+<script>
+  // range
+  const add = (a,b) => a + b;
+
+  const range = l => {
+    let i = -1;
+    let res = [];
+    while (++i < l){
+      log(i, 'range');
+      res.push(i);
+    }
+    return res;
+  };
+  // 원하는 크기(l)만큼의 숫자가 담긴 배열을 만드는 함수
+  // 포인터 변수 i를 -1로 초기화
+  // 결과를 담아 전송할 빈 배열 주머니를 만듦
+  // 조건문: 루프를 돌 떄마다 i를 먼저 1증가시키고 l보다 작은지 검사
+  // res 배열 주머니에 현재 i의 숫자 집어넣기
+
+
+  log(range(5));
+  // [0,1,2,3,4]
+
+  var list = range(4);
+  log(list);
+  // 배열 출력
+  // 배열도 이터러블
+  log(reduce(add, list));
+
+
+  // 느긋한 L.range
+  const L = {};
+  L.range = function *(l){
+    let i = -1;
+    while (++i < 1){
+      log(i, 'L.range');
+      // 이부분이 실행되지 않음
+      // 이터레이터의 안쪽에서 앞으로 값을 발생시킬 이 이터레이터가 이터레이터의 내부를 순회할 때마다 하나씩 값이 평가됨
+
+      yield i;
+      // yield 키워드 오른쪽에 있는 표현식을 먼저 계산함
+
+    }
+  };
+  // 제너레이터를 통해 이터레이터를 만드는 함수
+
+  
+  var list = L.range(4);
+  log(list);
+  // L.range{<suspended>} 출력
+    // 이 값은 넥스트를 통해 값을 가져올 수 있는 이터레이터 
+    log(list.next().value);
+    // 이 때부터 비로소 값이 평가됨
+  log(reduce(add, list));
+  // 위에 range함수와 같은 값을 출력하는 이유는 reduce 함수가 이터러블을 받기 때문
+</script>
+
+<script>
+  function test(name, time, f){
+    // 매개변수로 테스트 이름, 얼마나 실행할지, 실행할 함수 
+    console.time(name);
+    while (time--) f();
+    // time만큼 실행하기 위함
+    console.timeEnd(name);
+    // 어떤 테스트인지, 테스트가 끝났을 떄도 이름을 줘서 구분
+
+  }
+
+  test('range', 10, () => reduce(add, range(1000000)));
+  test('L.range', 10, () => reduce(add, L.range(1000000)));
+  // 테스트를 실행하면서 range를 먼저하고 10번정도 반복, 함수를 전달하며 실제로 reduce add를 하고 range를 1000000 크기를 만들어 진행
+  // L.range도 마찬가지
+</script>
+
+<script>
+// take 함수
+const take = curry((l, iter) => {
+  // 인자를 두개 받음 -> 리밋 값과 이터레이터(이터러블)
+  let res =[];
+  for (const a of iter) {
+    // 인자로 받은 이터러블 순회
+    res.push(a);
+    if (res.length == l) return res;
+      // 결과를 담고 있는 res의 길이와 받아둔 리밋이 같아지면 더 이상 순회하지 않고 해당하는 번지까지만 담고 리턴
+  }
+  return res;
+  // 리턴할 결과
+});
+go(
+  range(10000),
+  take(5),
+  reduce(add),
+  log
+);
+
+log(take(5 ,L.range(100)));
+// L.range와 같이 지연성을 가지는 함수를 이터레이터로 만들게되면, 전혀 다른 어떤 함수가(take) 이터러블 프로토콜만 따른다면 다 소통할 수 있게 됨 -> 지연성 덕분에 훨씬 효율적임
+
+
+
+</script>
+
+
+</body>
+
+</html>
