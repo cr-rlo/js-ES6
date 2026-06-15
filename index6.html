@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+<script>
+// L.map
+L.map = function *(f, iter){
+  // 힘수와 이터러블 값을 인자로 받는 제너레이터 함수
+  for (const a of iter) yield f(a);
+    // 내부에 있는 값들을 다 순회하면서 yield를 통해서 해당하는 값을 꺼냄
+  var it = L.map(a => a+ 10, [1,2,3]);
+  // 함수를 추가로 매핑할 함수를 받아줌
+  log(it.next());
+  log(it.next());
+  log(it.next());
+  // 결과를 받아서 next를 하게 되면 결과가 도출됨
+  // next를 하기 전까지는 아무 것도 도출되지 않음
+
+  // L.map 자체는 새로운 어레이를 만들지도 않고 그냥 값 하나하나 순회하면서 yield를 통해 함수가 적용된 값을 next를 실행할 떄마다 하나씩 전달
+  // 이렇게 준비된 이터레이터 객체를(it) 원하는 방법으로 평가하면서 ([it.next().value] 또는 [...it]) 구현할 수 있음
+};
+</script>
+<script>
+  // L.filter
+L.filter = function *(f, iter){
+  
+  for (const a of iter) if (f(a)) yield f(a);
+  // 이터레이터를 모두 순회하면서 yield하는 값이 L.filter의 경우에는 f를 적용하는 해당하는 값이 아니라 f를 적용해 봤을 때 true로 평가되는 값이 떨어진다면 그때만 a를 yield하는 식으로 구현
+  var it = L.filter(a => a%2, [1,2,3,4]);
+  log(it.next);
+  log(it.next);
+  log(it.next);
+  // yield가 배열의 길이만큼 4번 실행되는 것이 아니라 원하는 상황에서만 yield 되기 때문에 그때만 해당하는 값이 떨어져서 done이 true가 되기 전까지 해당하는 값을 필터링해서 next했을 때 value가 꺼내지도록 구성
+
+
+};
+
+
+
+
+</script>
+</body>
+</html>

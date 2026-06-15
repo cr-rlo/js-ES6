@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+<script>
+  const range = l => {
+    let i = -1;
+    let res = [];
+    while (++i < l){
+      res.push(i);
+    }
+    return res;
+  };
+
+  const map = curry((f, iter) => {
+    let res = [];
+    /* iter = iter[Symbol.iterator]();
+    let cur;
+    while (!(cur = iter.next()).done){
+      const a = cur.value;
+    }*/
+   // 이 부분이 for(const)가 하는 역할
+    for(const a of iter){
+      res.push((f(a)));
+    }
+    return res;
+  });
+
+  const filter = curry((f, iter) => {
+    let res = [];
+    for(const a of iter){
+      if (f(a)) res.push(a);
+    }
+    return res;
+  });
+
+  const take = curry((l, iter) => {
+    let res = [];
+    for(const a of iter){
+      res.push(a);
+      if(res.length == l) return res;
+    }
+    return res;
+  });
+
+  const reduce = curry((f, acc, iter) => {
+    if (!iter){
+      iter = acc[Symbol.iterator]();
+      acc = iter.next().value;
+    }
+    for(const a of iter){
+      acc = f(acc,a);
+    }
+    return acc;
+  });
+
+  go(range(10),
+    map(n => n + 10),
+    filter(n => n%2),
+    take(2),
+    log);
+
+
+</script>
+
+<script>
+L.range = function *(l){
+    let i = -1;
+    while (++i < 1){
+      yield i;
+    }
+  };
+
+L.map = curry(function *(f, iter){
+  for (const a of iter) {
+    yield f(a);
+}
+});
+
+L.filter = curry(function *(f, iter){
+  for (const a of iter){
+    if (f(a)) {
+      yield a;
+    }
+  }
+});
+go(L.range(10),
+  L.map(n => n + 10),
+  L.filter(n => n%2),
+    take(2),
+    log);
+// 실행 순서
+// 1. take 함수 -> next()
+// 2. take 함수의 while문 실행 전에 filter 함수로 들어감
+// 3. map while 실행 전에 range 함수로
+// 4. L.range yield
+// 5. map yield
+// 6. filter yield
+// 7. take
+
+
+</script>
+
+
+</body>
+</html>
