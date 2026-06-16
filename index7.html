@@ -101,10 +101,75 @@ go(L.range(10),
 // 5. map yield
 // 6. filter yield
 // 7. take
+</script>
+<script>
+// join 함수
+const join = curry((sep = ',', iter) => 
+reduce((a,b) => `${a}${sep}${b}`, iter));
+// 매개변수 기본값 sep = ',': 함수를 호출할 때 구분자 자리에 아무것도 넣지 않으면 자동으로 쉼표 문자열을 기본값으로 주입
+// curry: 커리로 선언했기 때문에 인자를 1개만 넣으면 join(구분자), iter를 받기 위해 기다리는 대기 상태의 함수가 리턴됨
+// reduce: iter탐색: 들어온 데이터 구조를 순회하기 위해 reduce에게 데이터 주머니인 iter를 넘겨줌
+// reduce: 축약함수: 배열 내부의 원소들을 하나로 합칠 때 원소와 원소 사이에 우리가 지정한 구분자를 끼워 넣으며 문자열을 결합하라고 지시하는 순수 함수
+// 밑에 queryStr을 호출한다면
+// object.entires와 map을 거치면서 join('&') 직전까지 대기
+// join은 커리로 감싸져 있는데 join('&')으로 인자가 하나만 들어왔으므로 본체 코드를 실행하지 않고 iter가 들어오기를 기다리는 대기 상태의 함수를 생성하여 go 파이프라인에 등록함
+// 이제 go 함수가 제어권을 잡고 1단계에서 완선된 문자열을 방금 대기상태로 만든 join함수의 두 번째 인자로 밀어 넣음
+
+
+
+
+// querStr 함수 만들기
+const queryStr = obj => go(
+  obj,
+  Object.entries,
+  // Object.entries를 사용하면 key, value를 앤트리즈로 변환해서 출력해줌
+  map(([k,v]) => `${k}=${v}`),
+  join('&'));
+// 인자는 obj
+
+log(queryStr({limit:10, offset:10, type: 'notice'}));
+
+const queryStr2 = obj => pipe(
+  Object.entries,
+  // Object.entries를 사용하면 key, value를 앤트리즈로 변환해서 출력해줌
+  map(([k,v]) => `${k}=${v}`),
+  reduce((a,b) => `${a}&${b}`)
+);
+
+// go 와 pipe를 치환할 수 있는 이유
+// go와 pipe가 내부적으로 대상을 바라보는 기준(값 vs 함수)만 다를 뿐, 자바스크립트의 실행 결과 관점에서는 완벽하게 동일한 구조를 만들기 때문
+// go는 값을 가지고 출발함 go(10,f1,f1)라면 숫자 10을 f1에 넣고 그 결과를 f2에 넣어서 즉시 최종 결과값을 뽑아냄
+// pipe는 함수들을 연결해줌 pipe(f1,f2)라면 값을 즉시 계산하지 않고 나중에 인자가 들어오면 f1을 거쳐 f2로 보내라 라는 구조를 가진 새로운 합성 함수를 리턴
+</script>
+<script>
+// take/find
+const users = [
+  {age: 32},
+  {age: 31},
+  {age: 37},
+  {age: 28},
+  {age: 25},
+  {age: 32},
+  {age: 31},
+  {age: 37}
+];
+
+const find = (f, iter) => go(
+  iter,
+  filter(f),
+  take(1),
+  ([a]) => a
+  // 배열 탈출/ 구조 분해 할당
+  // take(1)을 거치고 나온 결과는 객체가 아니라 [{age:28}] 형태의 배열
+  // 하지만 우리가 원하는 함수의 최종결과는 배열이 아니라 객체 알맹이 {age:28}
+  // 배열을 벗기기 위해 구조 분해 할당 문법을 함수의 매개변수 자리에 사용
+  // 자바스크립트에서 =기호 왼쪽이나 함수의 매개변수 자리에 []를 쓰면 컴퓨터에게 지금부터 들어올 데이터는 배열이니 기입한 순서대로 배열을 쪼개서 변수에 담아달라고 요청하는 선언이 됨
+);
+log(find(u => u.age < 30, users ));
+// 여기서 u가 users 배열 안의 개별 객체를 가리킬 수 있는 이유는, filter 함수 내부의 for of 루프가 배열을 돌면서 각 원소를 f라는 이름표를 붙인 함수에 인자로 집어 넣어주기 때문
+
 
 
 </script>
-
-
 </body>
 </html>

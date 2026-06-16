@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+<script>
+// L.map, L.filter로 map과 filter 만들기
+const range = l => {
+    let i = -1;
+    let res = [];
+    while (++i < l){
+      res.push(i);
+    }
+    return res;
+  };
+L.range = function *(l){
+    let i = -1;
+    while (++i < 1){
+      yield i;
+    }
+  };
+
+
+
+const map = curry((f, iter) => go(
+  iter,
+  L.map(f),
+  take(Infinity)
+));
+// iter가 파이프라인의 첫 번째 재료로 들어감
+// L.map(f): 게으른 대기 상태 -> 앞 단계에서 넘어온 iter와 매핑함수 f를 결합함, 대기상태
+// take(Infinity): 이 부분이 가동되면 멈춰있던 L.map의 while 루프가 깨어나면서 연쇄 반응
+// take가 L.map의 .next()버튼을 누름
+// L.map 내부의 yield f(a)가 실행되어 결과가 튀어나오고 take는 이 결과를 배열에 담음 
+// 이 과정을 배열이 끝날 때까지 무한히 반복
+const map2 = curry(pipe(
+  L.map,
+  take(Infinity)
+));
+// pipe는 첫 번째 함수에게 모든 인자를 몰아준다 -> 파이프라인을 시작할 떄 들어온 인자들은 맨 첫 번째 자리에 있는 함수에 통째로 전달된다.
+// 예를 들어 map2(x => x * 10, [1, 2, 3])을 실행한다면 
+// curry가 인자를 받음 -> curry는 인자가 다 들어왔으니 내부 함수 Pipe를 실행함
+// pipe는 방금 받은 2개의 인자를 맨 처음에 줄 서있는 L.map에 한꺼번에 넣어줌
+// 그렇다면 컴퓨터에서는 L.map(x => x*10, [1,2,3])이 실행됨
+// L.map이 뱉어낸 이터레이터가 파이프라인의 다음 주자인 take(Infinity)로 데이터를 전달함
+
+
+
+
+L.map = curry(function *(f, iter){
+  iter = iter[Symbol.iterator]();
+  // 인자로 받은 iter로 부터 순수한 이터레이터를 뽑아내어 다시 iter 변수에 덮어씌움 -> L.map이 배열뿐아니라 이터레이터 그 자체를 인자로 받아도 안전하게 순회할 수 있도록 만드는 표준화 작업
+  let cur;
+  while(!(cur = iter.next()).done){
+    // iter.next()를 통해 value, done 객체 생성
+    // 방금 만든 객체를 cur이라는 임시 변수에 대입
+    const a = cur.value;
+    //cur 객체에서 value 값을 꺼내 변수 a에 담음
+    yield f(a);
+    // 꺼낸 알맹이 a를 맵핑 함수 f에 넣어서 계산한 결과 값을 리턴함
+  }
+});
+
+log(map(a => a+10, range(4)));
+</script>
+</body>
+</html>
