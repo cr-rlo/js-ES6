@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+<script>
+const reduce = curry((f, acc, iter) => {
+    if (!iter){
+      iter = acc[Symbol.iterator]();
+      acc = iter.next().value;
+    }
+    for(const a of iter){
+      acc = f(acc,a);
+    }
+    return acc;
+  });
+
+const take = curry((l, iter) => {  
+  let res =[];
+  for (const a of iter) {
+    res.push(a);
+    if (res.length == l) return res;
+  }
+  return res;
+});
+
+const filter = curry((f, iter) => {
+    let res = [];
+    for(const a of iter){
+      if (f(a)) res.push(a);
+    }
+    return res;
+  });
+
+L.filter = curry(function *(f, iter){
+  for (const a of iter){
+    if (f(a)) {
+      yield a;
+    }
+  }
+});
+
+L.map = function *(f, iter){
+  for (const a of iter) yield f(a);};
+
+
+//L.flatten
+const isIterable = a => a && a[Symbol.iterator];
+// 어떤 데이터가 들어왔을 때 펼칠 수 있는 주머니인지 혹은 단일 값인지를 판별하는 함수
+// a && : 들어온 값이 null이거나 undefined일 때 뒤쪽 코드를 실행하면 에러가 나기 때문에 예외처리를 걸어둔 것
+
+L.flatten = function*(iter){
+  for(const a of iter){
+    if (isIterable(a)) for (const b of a) yield b;
+    // 꺼낸 원소 a가 isIterable을 통과해 값이 True일 때 a가 또 다른 배열의 형태를 띄고 있다는 의미 -> 그를 한 번 더 쪼개기 위해 한번더 순회
+    else yield a;
+    // false라면 단일 데이터라는 의미이므로 원본 그대로 yield
+  }
+};
+
+L.flatten = function *(iter) {
+  for (const a of iter) {
+    if (isIterable(a)) yield *a;
+    else yield a;
+  }
+};
+// yield*: 제어권 위임
+// yield 뒤에 *을 붙여서 yield *이터러블 이라고 적으면 이 이터러블 주머니를 열어서 그 안에 있는 값들을 다 뱉어낼 때까지 yield해줘 라는 의미가 됨
+
+
+
+const flatten = pipe(L.flatten, take(Infinity));
+</script>
+
+<script>
+// 2차원 배열 다루기
+const arr = [
+  [1,2],
+  [3,4,5],
+  [6,7,8],
+  [9,10]
+];
+go(arr,
+  L.flatten,
+  L.filter(a => a%2),
+  take(3),
+  log
+);
+
+
+</script>
+
+<script>
+  var users = [
+    { name: 'a', age:21, family: [
+    { name: 'a1', age:53 }, { name: 'a2', age:47 },
+    { name: 'a3', age:16 }, { name: 'a4', age:15 }
+    ]},
+    { name: 'b', age:24, family: [
+    { name: 'b1', age:58 }, { name: 'b2', age:51 },
+    { name: 'b3', age:19 }, { name: 'b4', age:22 }
+    ]},
+    { name: 'c', age:31, family: [
+    { name: 'c1', age:53 }, { name: 'c2', age:62 }
+    ]},
+    { name: 'd', age:20, family: [
+    { name: 'd1', age:42 }, { name: 'd2', age:42 },
+    { name: 'd3', age:11 }, { name: 'd4', age:7 }
+    ]}
+    ];
+
+    go(
+      users,
+      L.map(u => u.family),
+      // 유저테이블의 가족 배열 뽑아내기
+      // 결과물은 배열 안에 배열이 들어간 2차원 형태의 이터레이터가 됨
+      L.flatten,
+      // 뽑아낸 가족 배열을 펼치기
+      // 결과물은 1차원 데이터 스트림이 됨
+      L.filter(u => u.age < 20),
+      // 그 중 20세 미만인 사람 거르기
+      L.map(u => u.name),
+      // 그들의 이름 출력
+      take(4),
+      //reduce(add),
+      log
+    );
+
+</script>
+
+</body>
+</html>
