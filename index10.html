@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+<script>
+  function add10(a, callback){
+    setTimeout(() => callback(a + 10), 100);
+  };
+  // 1. setTimeout 예약: add10함수가 호출되면 내부에 있는 setTimeout이 실행됨. "시간이 다 되면 내부에 적힌 화살표 함수 실행"
+  // 2. 메인 스레드 해방(비동기 특성): 브라우저에게 타이머를 맡긴 후 add10 함수는 자기 할 일을 다 했다고 생각하고 즉시 종료 -> 덕분에 자바스크립트 메인 스레드는 기다리지 않고 이 함수 밑에 있는 다른 코드들 멈춤 없이 실행 가능
+  // 3. 100ms 후, 알맹이 계산: 시간이 흘러 100ms가 지나면 브라우저는 약속했던 화살표 함수를 자바스크립트 엔진의 실행 대기실로 보냄 -> 엔진은 이 함수를 실행하면서 괄호 안의 연산 처리
+  // 4. callback 함수로의 최종 배달: 이제 계산된 값을 들고 callback 함수 강제 호출 
+
+  add10(5, res => {
+    log(res);
+
+  });
+
+
+// promise
+   function add20(a){
+    // 이 함수에서 사용할 인자만 받고 이 함수에서 하는 일이 끝났을 때 사용할 콜백 함수는 받지 않음. 실제로 연산에 필요한 인자만 받음
+    return new Promise( resolve => setTimeout(() => resolve( a + 20 ), 100));
+
+   };
+   // 1. new Promise가 내부에서 하는 일: add20(5)를 호출하는 순간 컴퓨터는 기다리지 않고 즉시 빈 프로미스 객체를 만들어서 밖으로 리턴
+   // resolve => ... : 프로미스를 만들 때 자바스크립트 엔진은 내부적으로 resolve라는 이름의 특별한 스위치(함수)를 우리에게 기본 제공해 줌
+   // resolve의 역할은 "여기에 값을 넣고 누르면 빈 promise 객체에 결과값이 채워지면 완료상태가 된다"
+   // 3. setTimeout(() => resolve(a+20), 100): 0.1초가 지나면 a+20 즉, 5+20 = 25라는 숫자가 완성됨 -> 컴퓨터는 resolve 스위치에 이 값을 넣어 resolve(25)를 실행함
+   // add20(5).then(log)의 기계적 흐름: add20(5)가 리턴한 객체에 resolve값이 채워지면 그 값을 그대로 log(값) 함수에게 토스해라 라는 의미
+
+   add20(5)
+    .then(add20)
+    .then(log);
+    
+</script>
+<script>
+  // 일급 활용
+
+  const delay100 = a => new Promise(resolve => setTimeout(() => resolve(a),100));
+  // delay100(숫자)를 실행하면 a자리에 입력한 숫자가 대입됨
+  // new Promise가 발동하면서 resolve와 .then이 있는 주머니를 즉시 리턴
+  // 타이머가 작동하고 100ms가 지나면 resolve(숫자) 실행
+  // resolve로 넣은 값이 주머니를 관통해서 .then에서 기다리는 함수에게 떨어짐
+  // .then()이라는 메서드는 괄호 안의 행동을 등록해 두는 것
+  // resolve는 주머니의 상태를 바꿀 수 있는 비밀 스위치 함수
+
+
+
+
+  const go1 = (a, f) => a instanceof Promise ? a.then(f) : f(a);
+  // 인자와 함수를 받아서 이 인자를 함수에 적용하는 함수
+  // 들어온 인자 a가 일반 데이터인지, 아니면 미래에 값이 나올 프로미스 주머니인지 검사
+
+  const add5 = a => a+5;
+
+
+  var r = go1(10, add5);
+  log(r);
+  // 이 go1이 잘 작동하기 위해서는 f라는 함수가 동기적으로 동작해야하는 함수이고 이 a라는 값 역시 동기적으로 바로 값을 알 수 있는 값이어야 한다.
+  // 즉 프로미스가 아닌 값이 들어와야 이 함수에 값을 잘 적용할 수가 있게 되고 f가 잘 실행될 수 있다는 말
+  // 만약 a가 어느정도 시간이 걸린 후에 알 수 있는 값이라면?
+
+  var r2 = go1(delay100(10), add5);
+  r2.then(log);
+  // delay100(10) 실행 -> 빈 promise 객체 반환
+  // go1(빈 promise 객체, add5)실행
+  // a가 프로미스 객체이기 때문에 a.then(add5)실행
+  // 자바스크립트에서 .then()을 실행하면 그 즉시 새로운 promise 객체 만들어져서 리턴
+  // 이 2번 객체는 나중에 1번 객체에 값이 들어오면 add5를 실행해서 2번 객체에 채워라고 예약 걸어둔 상태
+  // go1 함수는 이 2번 객체 통째로 리턴
+  // 따라서 r2에는 빈 2번 객체가 저장
+  // r2.then(log)실행 -> r2에 값이 채워지면 log 함수 실행하겠다고 예약
+  // 100ms 경과
+  // delay100내부의 타이머가 종료되면서 resolve(10)의 스위치가 켜지고 1번 프로미스 객체에 숫자 10이 값으로 할당
+  // 1번 프로미스 객체에 10이 들어오면, 대기하고 있던 add5(10)이 실행되고 그 결과가 2번 프로미스 객체에 채워짐
+  // go1함수는 이 객체를 리턴하면서 log(15)가 실행됨
+
+</script>
+
+<script>
+  // 합성 관점에서의 promise와 모나드
+  //const g = a => a+1;
+  //const f = a => a*a;
+
+  //log(f(g(1)));
+  [ ].map(g).map(f).forEach(r => log(r));
+
+  Promise.resolve(1).then(g).then(f).then(r => log(r));
+  Promise(resolve => setTimeout(() => resolve(2),100)).then(g).then(f).then(r => log(r));
+</script>
+
+<script>
+// kleisli composition 관점에서 promise
+var users = [
+  { id: 1, name:'aa' },
+  { id: 2, name:'bb' },
+  { id: 3, name:'cc' }
+];
+
+const getUserById = id => find(u => u.id == id, users) || Promise.reject('없어');
+
+const f = ({name}) => name;
+const g = getUserById;
+
+// const fg = id => f(g(id));
+
+const fg = id => Promise.resolve(id).then(g).then(f).catch(a => a);
+users.pop();
+// 외부상황에 변화가 생긴 경우
+
+</script>
+
+
+<script>
+// go, pipe, reduce에서 비동기 제어
+
+const go = (...args) => reduce((a,f) => f(a), args);
+
+const go2 = (a, f) => a instanceof Promise ? a.then(f) : f(a);
+
+const reduce = curry((f, acc, iter) => {
+  if(!iter){
+    iter = acc[Symbol.iterator]();
+    acc = iter.next().value;
+   } else {
+     iter = iter[Symbol.iterator]();
+   }
+   return go2(acc, function recur(acc){
+    let cur;
+  while(!(cur = iter.next()).done){
+    const a = cur.value;
+    //acc = f(acc, a);
+    acc = f(acc, a);
+    if (acc instanceof Promise) return acc.then(recur);
+   }
+   return acc;
+   })
+ });
+
+
+  go(Promise.resolve(1),
+    a => a+10,
+    a => Promise.resolve(a+100),
+    a => a+1000,
+    log
+  );
+
+  go(Promise.resolve(1),
+    a => a+10,
+    a => Promise.reject('error'),
+    a => console.log('----'),
+    a => a+1000,
+    log.catch(a => console.log(a))
+  );
+
+
+
+
+
+new Promise(resolve => resolve(new Promise(resolve => resolve(1)))).then(log);
+
+new Promise(outer_resolve => outer_resolve(new Promise(inner_resolve => inner_resolve(1)))).then(log);
+// 제일 바깥쪽 비어있는 new Promise 객체 생성
+// 다음으로 안쪽 new Promise 객체 생성
+// 안쪽 promise객체가 resolve(1)값을 가짐
+// outer_resolve가 실행되면서 바깥쪽 promise객체가 1값을 가짐
+// resolve(1) 값을 .then에게 던져주면서 log 실행
+
+</script>
+</body>
+</html>

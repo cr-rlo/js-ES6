@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+<script>
+const take = curry((l, iter) => {
+  let res = [];
+  iter = iter[Symbol.iterator]();
+  // 이터러블을 받아서 이터레이터로 만들기
+  let cur;
+  while(!(cur = iter.next()).done){
+    const a = cur.value;
+    // 데이터가 남아있으먄 iter.next()가 {value: 10, done: false}이런식
+    // 데이터가 다 끝나면 iter.next()가 {value: undefined, done: true}
+    res.push(a);
+    // 해당하는 값을 retun할 값에 push
+    if (res.length == l) return res;
+    // return 할 값이 length가 애초에 몇 개를 꺼내고자헸는지(l)과 비교해서 같아졌다면 즉시 리턴
+  }
+  return res;
+  // 같아지지 않았다면 최대한 다 담은 다음에 return
+  // 예를 들어 데이터가 총 3개밖에 없는데 실수로 take(5, iter)를 호출했다면 if문에 걸리지 않고 return res;로 바로 리턴
+});
+// 그러나 이 take 함수는 중간에 프로미스 상자를 만나면 기다리지 못 하고 상자 자체를 배열에 넣어버렸음
+
+const take2 = curry((l, iter) => {
+  // l은 뽑고자 하는 데이터의 목표 개수(limit)
+  // iter는 데이터가 담긴 상자(배열, 제너레이터 등)
+  let res = [];
+  // 최종적으로 알맹이들을 담아 리턴할 빈 배열
+  // 이 변수가 recur 밖에 호출되어 있기 때문에 recur함수가 재귀호출되어도 이 배열은 초기화 되지 않고 기존에 담아둔 값을 그대로 유지(클로저 현상)
+  iter = iter[Symbol.iterator]();
+  // 이터러블을 받아서 이터레이터로 만들기
+  // iter.next()를 통해서 이를 호출할 때마다 차례대로 값을 꺼낼 수 있는 상태가 됨
+  // 이 대리인 역시 recur함수 밖에 선언되어 있기에 recur이 새로 선언되어도 대리인은 자신이 지난번에 몇번째 값까지 꺼냈었는지 기억할 수 있음
+  return function recur(){
+    // 필요할 때마다 언제든 새로 작동시킬 수 있는 while문 공장 만들기(recur)
+    // recur이라는 이름의 함수를 정의하자마자 맨뒤의 괄호를 통해 즉시 실행
+    // 그리고 이 함수가 최종적으로 뱉는 값을 take2의 전체 값으로 리턴
+    let cur;
+    // 이터레이터가 뱉을 설명서 객체{value, done}을 임시로 저장할 변수
+  while(!(cur = iter.next()).done){
+    const a = cur.value;
+    // 데이터가 남아있으먄 iter.next()가 {value: 10, done: false}이런식
+    // 데이터가 다 끝나면 iter.next()가 {value: undefined, done: true}
+    if(a instanceof Promise) return a.then(a=> {
+      // 만약 꺼낸 a가 프로미스 상자라면 이 부분이 작동
+      // return a.then 문장과 마주침
+      // a.then(...)을 보는 순간, 상자 속 내용물을 꺼내는 것이 아니라 나중에 이 상자가 열리면 여기 적힌 화살표 함수를 실행해줘 라고 예약장부에 적어둠
+      // 상자가 열리면 알맹이 자리에 진짜 숫자가 들어가면서 a => 부분이 실행됨
+      return (res.push(a), res).length == l ? res : recur();
+      // 예약 장부에 적자마자 이 부분이 실행됨
+      // (res.push(a), res): 쉼표 연산자. 괄호 안에 쉼표를 쓰면 나열된 행동을 왼쪽부터 차례대로 다 실행하되, 최종 결과물은 맨 오른쪽 하나만 남겨라는 뜻임
+      // 먼저 res.push(a)를 실행해서 배열에 알맹이를 집어넣음
+      // 쉼표 오른쪽에 있는 res 배열만 남김 -> 결과적으로 이 괄호 덩어리는 값이 추가된 res 배열 그 자체로 변신
+      // 그 res배열의 길이를 재서 길이가 l과 같으면 res를 반환하면서 함수를 끝내고 다르다면 recur()을 호출해서 while문이 다시 돌아가게 함
+    });
+    res.push(a);
+    // 해당하는 값을 retun할 값에 push
+    if (res.length == l) return res;
+    // return 할 값이 length가 애초에 몇 개를 꺼내고자헸는지(l)과 비교해서 같아졌다면 즉시 리턴
+  }
+  }();
+  // 이 괄호 덕분에 바로 즉시 실행
+});
+
+const isIterable = a => a && a[Symbol.iterator];
+const go1 = (a,f) => a instanceof Promise ? a.then(f): f(a);
+// a가 프로미스인지 검사하고 프로미스라면 상자가 열릴 때까지 기다렸다가 알맹이가 나오면 f에 넣기
+// 프로미스가 아니면 알맹이 그 자체이므로 바로 f에 넣어서 계산
+// .then은 resolve를 기다렸다가 알맹이가 나오면 실행 
+
+L.map = curry(function *(f, iter){
+  for(const a of iter){
+    // yield f(a);
+    yield go1(a, f);
+  }
+  // 이터러블 값을 순회하여 a라는 값을 그대로 f에 적용
+  // 여기서 yield f(a)에 go1을 씌우면 a라는 값이 프로미스 일 때 이를 풀어서 f를 적용하도록 구현할 수 있음
+});
+
+
+// 지연 평가 +promise -L.map, map, take
+go([Promise.resolve(1),Promise.resolve(2),Promise.resolve(3)],
+  L.map(a=> a+10),
+  take(2),
+  log
+);
+// 위와 같이 첫 번째 배열에 있는 값들이 프로미스라면 에러가 나는데, 이 코드가 정상적으로 작동하도록 구현하기 
+
+
+</script>
+</body>
+</html>
