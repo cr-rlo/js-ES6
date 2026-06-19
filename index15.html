@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+<script>
+// async/ await
+function delay(time){
+  return new Promise(resolve => setTimeout(() => resolve(), time))
+}
+// time 밀리초가 지나면 열리는 프로미스 상자를 리턴하는 함수
+
+async function delayIdentity(a){
+  await delay(500);
+  return a;
+};
+// 인자로 어떤 값 a를 받음
+// await delay(500);을 만나서 0.5초 동안 이 함수가 통째로 정지함
+// 깨어나면 인자로 바았던 a를 리턴함
+// 이때 함수 앞에 async가 붙어있으므로, 진짜 a가 아니라 a를 품고 있는 프로미스 상자가 리턴됨
+
+async function f1(){
+  const a = await delayIdentity(10);
+  // delayIdentity(10)을 호출하여 그 안에서 await delay(500)을 만남
+  // 0.5초가 지나면 return a를 통해 숫자 10을 뱉어냄
+  // f1에 있는 await가 방금 튀어나온 상자를 열어 알맹이만 뺌
+  // a에 숫자 10 성공적으로 할당
+  const b = await delayIdentity(5);
+
+  log(a+b);
+  // 프로미스가 결과를 만들어줘서 끝날 때가지 함수가 멈추게 되고 이 프로미스 내부에 있는 값이 a에 할당되게 됨
+  // f1이 프로미스를 리턴한다는 것을 기억하기
+} 
+f1();
+</script>
+</body>
+</html>

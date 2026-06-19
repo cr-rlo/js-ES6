@@ -50,7 +50,7 @@ const reduce = curry((f, acc, iter) => {
     });
 });
 
-const delay500 = a => new Promise(resolve => setTimeout(() => resolve(a), 500));
+const delay1000 = a => new Promise(resolve => setTimeout(() => resolve(a), 1000));
 
 </script>
 
@@ -116,7 +116,29 @@ C.map = curry(pipe(L.map, C.takeAll));
 // L.map 실행 -> L.map이 만든 예약 주머니가 C.takeAll에 토스
 C.filter = curry(pipe(L.filter, C.takeAll));
 
-C.map(a => delay500(a*a), [1,2,3,4].then(log));
+C.map(a => delay1000(a*a), [1,2,3,4].then(log));
+
+</script>
+
+<script>
+// 즉시 지연, Promise, 병렬적 조합하기
+const delay500 = (a, name) => new Promise(resolve => {
+  console.log(`${name}: ${a}`);
+  setTimeout(() => resolve(a), 500);
+});
+
+console.time('');
+go([1,2,3,4,5,6,7,8],
+  map(a => delay500(a * a), 'map 1'),
+  filter(a => delay500(a % 2), 'filter 2'),
+  map(a => delay500(a+1), 'map 3'),
+  take(2),
+  log,
+  _ => console.timeEnd('')
+);
+
+
+
 
 </script>
 </body>
