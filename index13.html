@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+<script>
+// reduce
+const reduceF = (acc,a,f) => 
+  // acc는 지금까지 쌓아온 누적값
+  // a는 주머니에서 방금 꺼낸 데이터, f는 계산기함수(add)
+  a instanceof Promise ? a.then(a=> f(acc,a), e => e== nop ? acc:Promise.reject(e)) : f(acc, a);
+  // 자바스크립트의 .then()은 괄호 안에 쉼표를 기준으로 성공했을 때의 함수, 실패했을 때의 함수를 동시에 적을 수 있음
+  // e(에러 내용)을 확인하고 acc를 그대로 리턴하고 e가 nop이 아닌 진자 에러라면 Promise.reject(e)를 통해 에러를 바깥으로 던져 프로그램을 멈춤
+
+
+const go1 = (a,f) => a instanceof Promise ? a.then(f): f(a);
+
+const head = iter => go1(take(1, iter), ([h]) => h);
+// iter 주머니에서 첫 번째 알갱이 하나만 꺼내주는 함수
+// 주머니에서 1개만 꺼내서 배열을 만듦
+// go1(..., ([h]) =>): take가 준 결과가 일반 배열 [1]이면 구조 분해 할당을 통해 곧바로 숫자 1을 뱉음
+// 만약 take가 준 결과가 프로미스 상자라면 go1덕분에 상자가 열릴 때까지 기다렸다가 알맹이가 나오면 배열에서 첫 번재 값 h를 꺼내서 리턴함
+
+const reduce = curry((f, acc, iter) => {
+  // f는 누적 계산기 함수 acc는 누적할 시작점 iter는 데이터가 담긴 주머니
+  if(!iter) return reduce(f, head(iter = acc[Symbol.iterator]()), iter);
+  // 사용자가 인자를 2개만 넣었을 때
+  // 2번째 자리에 들어온 데이터 뭉치를(acc를) iterator로 만들고 iter 변수에 집어 넣음 -> 그리고 head 함수를 통해서 방금 만든 iter 변수를 집어 넣고 첫 번째 값을 안전하게 꺼내옴
+  // 이제 reduce함수가 reduce(f, h, iter)로 세팅된 후 return을 통해서 이 함수를 반환하며 if문을 빠져나감
+
+    iter = iter[Symbol.iterator]();
+    return go1(acc, function recur(acc){
+      let cur;
+      while(!(cur = iter.next()).done){
+        acc = reduceF(acc, a, f);
+        if(acc instanceof Promise) return acc.then(recur);
+      }
+      return acc;
+    });
+});
+</script>
+
+<script>
+// reduce에서 nop 지원
+
+go([1,2,3,4],
+  L.map(a=> Promise.resolve(a*a)),
+  L.filter(a=> Promise.resolve(a%2)),
+  reduce(add),
+  log
+);
+</script>
+</body>
+</html>
