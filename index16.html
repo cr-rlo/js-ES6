@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+<script>
+  // Array.prototype.map이 있는데 왜 FxJS의 map 함수가 필요한지
+  async function delayI(a) {
+    return new Promise(resolve => setTimeout(() => resolve(a), 100));
+  }
+
+  async function f2(){
+    const list = [1,2,3,4];
+    const res = await list.map(async a => await delayI(a * a));
+    // 숫자 a를 받아서 제곱을 한 뒤, delayI함수에 넣음 -> 이는 비동기 함수이므로 프로미스 상자 리턴 => 이 보조함수는 4개의 프로미스 상자를 건네줌
+    // list.map 함수는 보조함수가 async/await을 해도 프로미스를 제어해주지 않고 프로미스 상자 4개를 배열에 담아 그대로 리턴 => 프로미스 상자들의 배열 리턴
+    // 그렇다고 해서 await을 list.map에 건다고 해도 await은 프로미스 상자만 열 수 있기 때문에 에러가 남 => list.map이 프로미스 상자를 리턴하는 것이 아니라 프로미스 상자들이 담긴 배열을 리턴하기 때문
+    // 결국 최종 적으로 log(res)로 리턴되는 것은 [promise, promise...]의 배열
+    // 결국 map 함수 자체가 비동기를 잘 제어하는 함수가 되어야 에러를 해결할 수 있음
+    log(res);
+  }
+
+  async function f3(){
+    const list = [1,2,3,4];
+    const res = await map(a => delayI(a * a), list);
+    }
+    // list.map이라는 순정 메서드 대신, 외부에 선언된 독립형 map(f, iter)함수를 사용했음
+    // 보조 함수 내의 지저분한 async, await을 지우고 깔금하게 축약
+    // 외부에 선언된 map에서 비동기 제어
+
+
+</script>
+<script>
+// map에서 비동기 제어가 성공하기 위해서 코딩되야하는 코드
+// 🛠️ 1. 전 단계에서 구현해 둔 도구들 준비
+const curry = f => (a, ..._)=> _.length ? f(a, ..._) : (..._) => f(a, ..._);
+// 조립식 레고 블록 제조기
+// 함수가 인자를 낱개로 받아도 기억해 두었다가, 필요한 인자가 다 모이면 그제야 실행되게 만드는 도구
+
+const go1 = (a, f) => a instanceof Promise ? a.then(f) : f(a);
+// 프로미스 판별기
+// a가 일반 데이터면 곧바로 f(a)를 실행하라
+// a가 프로미스면 .then(f)를 붙여서 섣불리 계산하지 말고, 상자가 열려 알맹이가 나오면 그때 f함수를 실행하도록 예약을 걸어라 
+
+// 게으른 주머니 (아직 계산 안 함)
+L.map = curry(function *(f, iter){
+  for(const a of iter){
+    // yield f(a);
+    yield go1(a, f);
+  }
+  // 이터러블 값을 순회하여 a라는 값을 그대로 f에 적용
+  // 여기서 yield f(a)에 go1을 씌우면 a라는 값이 프로미스여도 에러가 나지 않고 이를 풀어서 f를 적용하도록 구현할 수 있음
+
+});
+
+L.map = curry(function* (f, iter) {
+  for (const a of iter) yield f(a);
+});
+// function*: 제너레이터 함수, 호출해도 바로 일하지 않음
+// f(a)는 우리가 넘긴 a => delayI(a * a) 같은 실제 계산식
+// L.map을 실행한 직후에는 f(a)가 단 한번도 실행되지 않고 .next()와 같이 리모컨이 눌리면 f(a)를 계산해주겠다는 대기 상태만 리턴
+
+// 안전그물
+const catchNoop = arr => (arr.forEach(p => p instanceof Promise ? p.catch(() => {}) : p), arr);
+// (문장 1, 문장2): 자바스크립트에서 괄호 안에 쉼표로 문장을 연결하면, 앞에 있는 문장1을 실행한 뒤, 제일 마지막에 있는 문장 2의 결과 값을 최종 리턴
+// p => p instanceof Promise ? p.catch(() => {}) : p: 배열 안의 알맹이 p를 하나씩 검사하여 그 값이 프로미스라면 p.catch(() => {})을 통해서 .catch(빈함수)를 달아두고 에러가 나도 콘솔창에 아무것도 띄우지 말 것을 명령
+// 프로미스가 아니라면 p => 아무것도 하지 않고 그냥 패스
+// 처리가 모두 끝난 arr을 리턴
+
+// 원하는 개수만큼 수거하는 순정 take
+take = curry((l, iter) => {
+  let res = [];
+  iter = iter[Symbol.iterator]();
+  let cur;
+  while (!(cur = iter.next()).done) {
+    const a = cur.value;
+    res.push(a);
+    if (res.length === l) return res;
+  }
+  return res;
+});
+// iter = iter[Symbol.iterator](); 배열이든 주머니든 입력한 iter를 이터레이터로 바꾸는 문법
+// iter.next() : 리모컨 버튼. { value: 알맹이, done: true/false } 라는 포장 상자 리턴
+// cur = iter.next() 그렇게 처리한 포장 상자를 cur이라는 변수에 담음
+// 주머니가 비기전까지 반복문 계속 실행
+// cur의 value값을 a에 담음
+// res.push(a);를 통해 그 a값을 처음 만들어 둔 res 배열에 담음
+// 매개변수 l과 res의 길이가 같아지면 뒤에 반복할 것이 더 남아 있어도 res리턴
+
+
+// 💥 방금 만드신 영리한 동시성 엔진!
+C.take = curry((l, iter) => take(l, catchNoop([...iter])));
+C.takeAll = C.take(Infinity); // 개수 제한 없이 다 가져오기
+// 
+
+
+// ------------------------------------------
+
+// 🏆 2. 최종 완성된 똑똑한 비동기 map 함수!
+map = curry((f, iter) => {
+  // 게으르게 준비만 해둔 주머니(L.map)를 동시성 수거기(C.takeAll)에 던집니다.
+  // 이 안에서 [...iter]가 터지면서 동시 출발하고, 안전그물이 쳐집니다.
+  return C.takeAll(L.map(f, iter)); 
+});
+
+</script>
+<script>
+// 비동기는 async/await으로 제어할 수 있는데 파이프 라인이 필요한 이유
+function f5(list){
+  return go(list,
+    L.map(a => delayI(a*a),
+    L.filter(a => delayI(a%2)),
+    L.map(a=> delayI(a+1)),
+    take(2),
+    reduce((a,b) => delayI(a+b))));
+}
+
+go(f5([1,2,3,4,5,6,7,8]), log);
+
+async function f6(list){
+  let temp = [];
+  for (const a of list){
+    const b = await delayI(a * a);
+    log(b);
+    if (await delayI(b%2)){
+      const c = await delayI(b+1);
+      temp.push(c);
+      if(temp.length == 3) break;
+    }
+  }
+  let res = temp[0], i=0;
+  // 결과 주머니 res에 배열의 가장 첫 번째 값을 먼저 집어넣고 시작
+  // i = 0: 방지턱 역할을 할 인덱스 번호를 0으로 세팅
+  while(++i < temp.length){
+    // i가 원래 0이었는데, ++i를 만나서 즉시 1이 됨
+    // 인덱스가 temp의 길이보다 작을 때까지 반복 
+    res = await delayI(res + temp[i]);
+    // 원래 res에 있던 첫 번째 값과 방금 가져온 값을 더해서 다시 res에 넣음
+
+  }
+  return res;
+};
+
+go(f6([1,2,3,4,5,6,7,8]), log);
+
+</script>
+<script>
+// async와 await을 같이 사용하기도 하는가
+async function f52(list){
+  const r1 = await go(list,
+    L.map(a => delayI(a*a),
+    L.filter(a => delayI(a%2)),
+    L.map(a=> delayI(a+1)),
+    take(2),
+    reduce((a,b) => delayI(a+b))));
+
+  const r2 = await go(list,
+    L.map(a => delayI(a*a),
+    L.filter(a => delayI(a%2)),
+    reduce((a,b) => delayI(a+b))));
+
+    const r3 = await delayI(r1 + r2);
+    return r3 + 10;
+}
+go(f52([1,2,3,4,5,6,7,8]), a => log(a, 'f52'));
+
+</script>
+<script>
+  // 동기 상황에서 에러 핸들링을 어떻게 하는가
+  function f7(list){
+    try{
+      return list
+        .map(a => a+10)
+        .filter(a=> a%2)
+        .slice(0,2);
+    } catch(e){
+      return [];
+    }
+  }
+  log(f7(null));
+</script>
+<script>
+  // 비동기 상황에서 에러 핸들링
+  async function f8(){
+    try{
+      const res = go(
+        list,
+        map(a => new Promise(reolve => {
+          resolve(JSON.parse(a));
+        })),
+        filter(a=> a%2),
+        take(2)
+      );
+      // go에서 떨어뜨리는 값이 Promise기 때문에 올바르게 처리가 됨
+      return await res;
+    }catch(e){
+      return [];
+    }
+  }
+  log(f8(['0','1','2','}']));
+</script>
+</body>
+</html>
